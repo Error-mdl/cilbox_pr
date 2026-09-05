@@ -155,8 +155,9 @@ namespace Cilbox
 			int plen = parametersIn?.Length ?? 0;
 			int thisOffset = isStatic ? 0 : 1;
 
-			StackElement [] parameters = new StackElement[plen+thisOffset];
-			StackElement [] stackBuffer = new StackElement[Cilbox.defaultStackSize];
+			int paramArrayLen = plen+thisOffset;
+			StackElement[] parameters  = ArrayPool<StackElement>.Shared.Rent(paramArrayLen);
+			StackElement[] stackBuffer = ArrayPool<StackElement>.Shared.Rent(Cilbox.defaultStackSize);
 
 			if( isStatic )
 			{
@@ -184,6 +185,11 @@ namespace Cilbox
 				else parentClass.box.DisableWithReason(e.ToString());
 				if( e is CilboxUnhandledInterpretedException uhe && uhe.Throwee is System.Exception te ) throw te;
 				throw;
+			}
+			finally
+			{
+				ArrayPool<StackElement>.Shared.Return(parameters, true);
+				ArrayPool<StackElement>.Shared.Return(stackBuffer, true);
 			}
 			parentClass.box.InterpreterExit();
 
