@@ -37,8 +37,10 @@ namespace Cilbox
 		public int HandlerOffset;
 		public int HandlerLength;
 		public int HandlerEndOffset;
+		#nullable enable
 		public Type? CatchType;
 		public string? CatchTypeName;
+		#nullable restore
 	}
 
 	public class CilboxHeapInstance
@@ -2241,8 +2243,8 @@ spiperf.End();
 		}
 
 		abstract public bool CheckMethodAllowed( out MethodInfo mi, Type declaringType, String name, SerializedTypeDescriptor [] parametersIn, SerializedTypeDescriptor [] genericArgumentsIn, String fullSignature );
-		abstract public bool CheckTypeAllowed( String sType );
-		abstract public bool CheckFieldAllowed( String sType, String sFieldName );
+		abstract public bool CheckTypeAllowed( Type t ); //String sType );
+		abstract public bool CheckFieldAllowed( Type t, String sFieldName );
 		abstract public bool GetTypeOverride( String sType, out Type t );
 
 		public delegate void CilboxDisabledEvent( Cilbox box, string reason );
@@ -2334,7 +2336,10 @@ spiperf.End();
 					}
 					else
 					{
-						bool bAllowed = CheckFieldAllowed( t.declaringTypeName, t.Name );
+						Type declaringType = Type.GetType(t.Name, false, false);
+						if (declaringType == null) t.isValid = false; break;
+
+						bool bAllowed = CheckFieldAllowed( declaringType, t.Name );
 						if( !bAllowed )
 						{
 							throw new CilboxException( $"Illegal field reference outside of the cilbox. {t.declaringTypeName}.{t.Name} in meta {st.metaTokenIndex}." );
@@ -2508,7 +2513,7 @@ spiperf.End();
 					{
 						if( c.methods[cctorIndex].isStatic )
 						{
-							c.methods[cctorIndex].Interpret( null, new object[0] );
+							c.methods[cctorIndex].Interpret( null, System.Array.Empty<object>() );
 						}
 					}
 				}
