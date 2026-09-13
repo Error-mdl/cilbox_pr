@@ -50,6 +50,8 @@ namespace Cilbox
 
 	public class CilboxMethod
 	{
+		private static readonly ArrayPool<StackElement> s_stackElementPool = ArrayPool<StackElement>.Create();
+
 		public CilboxClass parentClass;
 		public int MaxStackSize;
 		public String methodName;
@@ -155,19 +157,24 @@ namespace Cilbox
 			int plen = parametersIn?.Length ?? 0;
 			int thisOffset = isStatic ? 0 : 1;
 
-			StackElement [] parameters = new StackElement[plen+thisOffset];
-			StackElement [] stackBuffer = new StackElement[Cilbox.defaultStackSize];
+			int paramArrayLen = plen+thisOffset;
+			StackElement[] paramStackArray = s_stackElementPool.Rent(paramArrayLen + Cilbox.defaultStackSize);
 
+			ArraySegment<StackElement> parameters  = new (paramStackArray, 0, paramArrayLen);
+			ArraySegment<StackElement> stackBuffer = new (paramStackArray, paramArrayLen, Cilbox.defaultStackSize);
+
+			// Calling parameters[p].Load does not modify the original element in paramStackArray
+			// Use the full paramStackArray assuming that parameters start at index 0
 			if( isStatic )
 			{
 				for( int p = 0; p < plen; p++ )
-					parameters[p].Load( parametersIn[p] );
+					paramStackArray[p].Load( parametersIn[p] );
 			}
 			else
 			{
-				parameters[0].Load( ths );
+				paramStackArray[0].Load( ths );
 				for( int p = 0; p < plen; p++ )
-					parameters[p+1].Load( parametersIn[p] );
+					paramStackArray[p+1].Load( parametersIn[p] );
 				plen++;
 			}
 
@@ -184,6 +191,10 @@ namespace Cilbox
 				else parentClass.box.DisableWithReason(e.ToString());
 				if( e is CilboxUnhandledInterpretedException uhe && uhe.Throwee is System.Exception te ) throw te;
 				throw;
+			}
+			finally
+			{
+				s_stackElementPool.Return(paramStackArray, true);
 			}
 			parentClass.box.InterpreterExit();
 
