@@ -13,117 +13,90 @@ namespace Cilbox
 	{
 		public override long MaxTimeoutLengthUs => 5000; // 5ms. Avatas need to be restrictive.
 
-		static HashSet<Type> whiteListType = new HashSet<Type>(){
-			typeof(CilboxPublicUtils),
-			typeof(System.Array),
-			typeof(System.Boolean),
-			typeof(System.Byte),
-			typeof(System.Char),
-			typeof(System.Collections.Generic.List<int>).GetGenericTypeDefinition(),
-			typeof(System.Collections.Generic.Dictionary<int,int>).GetGenericTypeDefinition(),
-			typeof(System.Collections.Generic.HashSet<int>).GetGenericTypeDefinition(),
-			typeof(System.DateTime),
-			typeof(System.DayOfWeek),
-			typeof(System.Diagnostics.Stopwatch),
-			typeof(System.Double),
-			typeof(System.Int32),
-			typeof(System.Int64),
-			typeof(System.MathF),
-			typeof(System.Math),
-			typeof(System.Object),
-			typeof(System.Single),
-			typeof(System.String),
-			typeof(System.TimeSpan),
-			typeof(System.UInt16),
-			typeof(System.UInt32),
-			typeof(System.UInt64),
-			typeof(System.ValueTuple),
-			typeof(void),
-			typeof(UnityEngine.Component),
-			typeof(UnityEngine.Debug),
-			typeof(UnityEngine.Events.UnityAction),
-			typeof(UnityEngine.Events.UnityEvent),
-			typeof(UnityEngine.GameObject),     // Hyper restrictive.
-			typeof(UnityEngine.Material),
-			typeof(UnityEngine.MaterialPropertyBlock),
-			typeof(UnityEngine.Mathf),
-			typeof(UnityEngine.MeshRenderer),
-			typeof(UnityEngine.MonoBehaviour),   // Note this is needed for the 'ctor, but we can be very restrictive.
-			typeof(UnityEngine.Object),
-			typeof(UnityEngine.Random),
-			typeof(UnityEngine.Renderer),
-			typeof(UnityEngine.Time),
-			typeof(UnityEngine.Texture),
-			typeof(UnityEngine.UI.Button.ButtonClickedEvent),
-			typeof(UnityEngine.UI.Button),
-			typeof(UnityEngine.UI.InputField),
-			typeof(UnityEngine.UI.InputField.OnChangeEvent),
-			typeof(UnityEngine.UI.Scrollbar),
-			typeof(UnityEngine.UI.Selectable),
-			typeof(UnityEngine.UI.Slider),
-			typeof(UnityEngine.UI.Text),
-			typeof(UnityEngine.TextAsset),
-			typeof(UnityEngine.Texture2D),
-			typeof(UnityEngine.Transform),
-			typeof(UnityEngine.Vector4),
-			typeof(UnityEngine.Vector3),
+		static HashSet<String> whiteListType = new HashSet<String>(){
+			"Cilbox.CilboxPublicUtils",
+			"System.Array",
+			"System.Boolean",
+			"System.Byte",
+			"System.Char",
+			"System.Collections.Generic.Dictionary",
+			"System.DateTime",
+			"System.DayOfWeek",
+			"System.Diagnostics.Stopwatch",
+			"System.Double",
+			"System.Int32",
+			"System.Int64",
+			"System.MathF",
+			"System.Math",
+			"System.Object",
+			"System.Single",
+			"System.String",
+			"System.TimeSpan",
+			"System.UInt16",
+			"System.UInt32",
+			"System.UInt64",
+			"System.ValueTuple",
+			"System.Void",
+			"UnityEngine.Component",
+			"UnityEngine.Debug",
+			"UnityEngine.Events.UnityAction",
+			"UnityEngine.Events.UnityEvent",
+			"UnityEngine.GameObject",     // Hyper restrictive.
+			"UnityEngine.Material",
+			"UnityEngine.MaterialPropertyBlock",
+			"UnityEngine.Mathf",
+			"UnityEngine.MeshRenderer",
+			"UnityEngine.MonoBehaviour",   // Note this is needed for the 'ctor, but we can be very restrictive.
+			"UnityEngine.Object",
+			"UnityEngine.Random",
+			"UnityEngine.Renderer",
+			"UnityEngine.Time",
+			"UnityEngine.Texture",
+			"UnityEngine.UI.Button+ButtonClickedEvent",
+			"UnityEngine.UI.Button",
+			"UnityEngine.UI.InputField",
+			"UnityEngine.UI.InputField+OnChangeEvent",
+			"UnityEngine.UI.Scrollbar",
+			"UnityEngine.UI.Selectable",
+			"UnityEngine.UI.Slider",
+			"UnityEngine.UI.Text",
+			"UnityEngine.TextAsset",
+			"UnityEngine.Texture2D",
+			"UnityEngine.Transform",
+			"UnityEngine.Vector4",
+			"UnityEngine.Vector3",
 		};
 
-		readonly struct AllowedField : IEquatable<AllowedField>
+		static HashSet<String> whiteListFields = new HashSet<String>(){
+			"UnityEngine.Vector3.x",
+			"UnityEngine.Vector3.y",
+			"UnityEngine.Vector3.z",
+		};
+
+		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
+
+		bool CheckTypeAllowedString( string sType )
 		{
-			public readonly Type type;
-			public readonly string fieldName;
-
-			public AllowedField(Type type, string fieldName)
-			{
-				this.type = type;
-				this.fieldName = fieldName;
-			}
-
-			public readonly bool Equals(AllowedField other)
-            {
-                return (this.type == other.type) && (string.Equals(this.fieldName, other.fieldName, StringComparison.Ordinal));
-            }
-
-			public readonly override int GetHashCode()
-			{
-				return HashCode.Combine(type.GetHashCode(), fieldName.GetHashCode());
-			}
-        }
-
-		static HashSet<AllowedField> whiteListFields = new HashSet<AllowedField>(){
-			new( typeof(Vector3), "x"),
-			new( typeof(Vector3), "y"),
-			new( typeof(Vector3), "z"),
-			new( typeof(Vector4), "x"),
-			new( typeof(Vector4), "y"),
-			new( typeof(Vector4), "z"),
-			new( typeof(Vector4), "w"),
-		};
-
-		static public HashSet<Type> GetWhiteListTypes() { return whiteListType; }
+			return whiteListType.Contains(sType);
+		}
 
 		// This is called by CilboxUsage to decide of a type is allowed.
 		// If a type is allowed, by defalt it is all allowed.
 		override public bool CheckTypeAllowed( Type sType )
 		{
-			if (sType.IsPrimitive || sType.IsEnum) return true;
-
-			if (sType.IsGenericType) sType = sType.GetGenericTypeDefinition();
-
-			return whiteListType.Contains( sType );
+			string typeName = GetSanitizedTypeName(sType);
+			return CheckTypeAllowedString(typeName);
 		}
 
 		override public bool CheckFieldAllowed( Type sType, String sFieldName )
 		{
-			if( !CheckTypeAllowed( sType ) ) return false;
-			if( sFieldName.Length < 1 ) return false;
-			if (sType.IsGenericType) sType = sType.GetGenericTypeDefinition();
-			
-			AllowedField field = new (sType, sFieldName);
-
-			return whiteListFields.Contains(field);
+			string typeName = GetSanitizedTypeName(sType);
+			if( !CheckTypeAllowedString( typeName ) ) return false;
+			if( typeName.Length < 1 || sFieldName.Length < 1 ) return false;
+			if( !whiteListFields.Contains( typeName + "." + sFieldName ) ) return false;
+			return true;
 		}
+
 
 		// After a type is allowed, this is called to see if the specific method is OK.
 		override public bool CheckMethodAllowed( out MethodInfo mi, Type declaringType, String name, SerializedTypeDescriptor [] parametersIn, SerializedTypeDescriptor [] genericArgumentsIn, String fullSignature )
