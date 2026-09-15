@@ -111,14 +111,16 @@ namespace TestCilbox
 
 		override public bool CheckTypeAllowed( Type sType )
 		{
+			if (sType.IsGenericType && !sType.IsGenericTypeDefinition) sType = sType.GetGenericTypeDefinition();
 			string typeName = GetSanitizedTypeName(sType);
 			return whiteListType.Contains(typeName);
 		}
 
 		public override bool CheckFieldAllowed(Type sType, string sFieldName)
 		{
+			if (sType.IsGenericType && !sType.IsGenericTypeDefinition) sType = sType.GetGenericTypeDefinition();
 			string typeName = GetSanitizedTypeName(sType);
-			return whiteListField.Contains( typeName + "." + sFieldName );
+			return whiteListField.Contains(typeName + "." + sFieldName);
 		}
 
 		override public bool CheckMethodAllowed( out MethodInfo mi, Type declaringType, String name, SerializedTypeDescriptor [] parametersIn, SerializedTypeDescriptor [] genericArgumentsIn, String fullSignature )

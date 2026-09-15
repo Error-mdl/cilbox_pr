@@ -2336,8 +2336,11 @@ spiperf.End();
 					}
 					else
 					{
-						Type declaringType = Type.GetType(t.Name, false, false);
-						if (declaringType == null) t.isValid = false; break;
+						Type declaringType = Type.GetType(t.declaringTypeName, false, false);
+						if (declaringType == null) 
+						{
+							throw new CilboxException($"Could not find declaring type {t.declaringTypeName} for field {t.Name} during BoxInitialize");
+						}
 
 						bool bAllowed = CheckFieldAllowed( declaringType, t.Name );
 						if( !bAllowed )
