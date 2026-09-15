@@ -2450,7 +2450,7 @@ spiperf.End();
 					(name, stDt) = usage.HandleEarlyMethodRewrite( name, st.typeDescriptor, genericArguments );
 
 					string declaringTypeName = t.declaringTypeName = usage.GetNativeTypeNameFromDescriptor( stDt );
-
+					
 					SerializedTypeDescriptor [] parametersSer = st.methodParameters;
 
 					// First, see if this is to a class we are responsible for. Like does it come from _this_ class?
@@ -2478,27 +2478,31 @@ spiperf.End();
 					else
 					{
 						Type declaringType = usage.GetNativeTypeFromDescriptor( stDt );
-						if( declaringType == null )
-							throw new CilboxException( $"Error: Could not find referenced type {useAssembly}/{declaringTypeName}/" );
-
-						MethodBase m = usage.GetNativeMethodFromTypeAndName( declaringType, name, parametersSer, genericArguments, fullSignature );
-
-						if( m != null )
+						if ( declaringType == null ) 
 						{
-							t.nativeMethod = m;
-							t.isNative = true;
-							t.isValid = true;
-							ParameterInfo[] mp = m.GetParameters();
-							Type[] mpt = new Type[mp.Length];
-							for( int mpi = 0; mpi < mp.Length; mpi++ )
+							Debug.LogError( $"Error: Could not find referenced type {useAssembly}/{declaringTypeName}/ {fullSignature}" );
+						} 
+						else 
+						{
+							MethodBase m = usage.GetNativeMethodFromTypeAndName( declaringType, name, parametersSer, genericArguments, fullSignature );
+
+							if( m != null )
 							{
-								mpt[mpi] = mp[mpi].ParameterType;
+								t.nativeMethod = m;
+								t.isNative = true;
+								t.isValid = true;
+								ParameterInfo[] mp = m.GetParameters();
+								Type[] mpt = new Type[mp.Length];
+								for( int mpi = 0; mpi < mp.Length; mpi++ )
+								{
+									mpt[mpi] = mp[mpi].ParameterType;
+								}
+								t.nativeParameterTypes = mpt;
+								t.nativeIsVoid = (m is MethodInfo mInfo) && mInfo.ReturnType == typeof(void);
+							} else if( !t.isNative )
+							{
+								throw new CilboxException( "Error: Could not find reference to: [" + useAssembly + "][" + declaringType.FullName + "][" + fullSignature + "] Type from:" + declaringTypeName );
 							}
-							t.nativeParameterTypes = mpt;
-							t.nativeIsVoid = (m is MethodInfo mInfo) && mInfo.ReturnType == typeof(void);
-						} else if( !t.isNative )
-						{
-							throw new CilboxException( "Error: Could not find reference to: [" + useAssembly + "][" + declaringType.FullName + "][" + fullSignature + "] Type from:" + declaringTypeName );
 						}
 					}
 					break;
