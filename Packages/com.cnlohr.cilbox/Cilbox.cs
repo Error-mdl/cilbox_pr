@@ -37,8 +37,10 @@ namespace Cilbox
 		public int HandlerOffset;
 		public int HandlerLength;
 		public int HandlerEndOffset;
+		#nullable enable
 		public Type? CatchType;
 		public string? CatchTypeName;
+		#nullable restore
 	}
 
 	public class CilboxHeapInstance
@@ -2252,8 +2254,8 @@ spiperf.End();
 		}
 
 		abstract public bool CheckMethodAllowed( out MethodInfo mi, Type declaringType, String name, SerializedTypeDescriptor [] parametersIn, SerializedTypeDescriptor [] genericArgumentsIn, String fullSignature );
-		abstract public bool CheckTypeAllowed( String sType );
-		abstract public bool CheckFieldAllowed( String sType, String sFieldName );
+		abstract public bool CheckTypeAllowed( Type t ); //String sType );
+		abstract public bool CheckFieldAllowed( Type t, String sFieldName );
 		abstract public bool GetTypeOverride( String sType, out Type t );
 
 		public delegate void CilboxDisabledEvent( Cilbox box, string reason );
@@ -2345,7 +2347,13 @@ spiperf.End();
 					}
 					else
 					{
-						bool bAllowed = CheckFieldAllowed( t.declaringTypeName, t.Name );
+						Type declaringType = Type.GetType(t.declaringTypeName, false, false);
+						if (declaringType == null) 
+						{
+							throw new CilboxException($"Could not find declaring type {t.declaringTypeName} for field {t.Name} during BoxInitialize");
+						}
+
+						bool bAllowed = CheckFieldAllowed( declaringType, t.Name );
 						if( !bAllowed )
 						{
 							throw new CilboxException( $"Illegal field reference outside of the cilbox. {t.declaringTypeName}.{t.Name} in meta {st.metaTokenIndex}." );
@@ -2453,7 +2461,7 @@ spiperf.End();
 					(name, stDt) = usage.HandleEarlyMethodRewrite( name, st.typeDescriptor, genericArguments );
 
 					string declaringTypeName = t.declaringTypeName = usage.GetNativeTypeNameFromDescriptor( stDt );
-
+					
 					SerializedTypeDescriptor [] parametersSer = st.methodParameters;
 
 					// First, see if this is to a class we are responsible for. Like does it come from _this_ class?
@@ -2481,8 +2489,11 @@ spiperf.End();
 					else
 					{
 						Type declaringType = usage.GetNativeTypeFromDescriptor( stDt );
-						if( declaringType == null )
-							throw new CilboxException( $"Error: Could not find referenced type {useAssembly}/{declaringTypeName}/" );
+						if ( declaringType == null ) 
+						{
+							Debug.LogError( $"Error: Could not find referenced type {useAssembly}/{declaringTypeName}/ {fullSignature}" );
+							break;
+						} 
 
 						MethodBase m = usage.GetNativeMethodFromTypeAndName( declaringType, name, parametersSer, genericArguments, fullSignature );
 
@@ -2519,7 +2530,7 @@ spiperf.End();
 					{
 						if( c.methods[cctorIndex].isStatic )
 						{
-							c.methods[cctorIndex].Interpret( null, new object[0] );
+							c.methods[cctorIndex].Interpret( null, System.Array.Empty<object>() );
 						}
 					}
 				}
@@ -2621,6 +2632,67 @@ spiperf.End();
 			this.disabled = true;
 			//this.InterpreterExit();
 			OnCilboxDisabled?.Invoke(this, reason);
+		}
+
+		// For a given type, returns the type name with ref, array, and generic components removed. For use with type whitelisting. 
+		public static string GetSanitizedTypeName(Type type)
+		{
+			ReadOnlySpan<char> typeName = type.FullName.AsSpan();
+			int charCnt = typeName.Length;
+
+			// ignore terminal ref
+			if (typeName[charCnt - 1] == '&') {
+				charCnt = charCnt - 1;
+			}
+
+			// Ignore terminal generic type array if present
+			if (typeName[charCnt - 1] == ']') {
+				int braceCount = 1;
+				for (int cIdx = charCnt - 2; cIdx >= 0; cIdx--) {
+					if (typeName[cIdx] == '[') {
+						braceCount--;
+						if (braceCount < 1) {
+							charCnt = cIdx;
+							break;
+						}
+					}
+					if (typeName[cIdx] == ']') {
+						braceCount++;
+					}
+				}
+			}
+
+			// 128 bytes should be safe for a stackalloc (C# uses UTS-16 chars so 64 chars) 
+			Span<char> modTypeName = charCnt < 65 ? stackalloc char[charCnt] : new char[charCnt];
+
+			// Copy typeName to modTypeName in chunks, skipping over unwanted characters
+			int sourceCnt = charCnt;
+			int destCnt = 0;
+			int srcCopyStart = 0;
+
+			
+			for (int sIdx = 0; sIdx < sourceCnt; sIdx++) {
+				// remove generic type counts, these start with a ` followed by one or more digits expressing how many generic type parameters there are
+				if (typeName[sIdx] == '`') {
+					int copyCount = sIdx - srcCopyStart;
+					typeName[srcCopyStart..sIdx].CopyTo(modTypeName[destCnt..(destCnt + copyCount)]);
+					destCnt += copyCount;
+					// skip past digits
+					sIdx++;
+					for (; sIdx < sourceCnt; sIdx++) {
+						if (!char.IsDigit(typeName[sIdx])) break;
+					}
+					srcCopyStart = sIdx; 
+				}
+			}
+			if (srcCopyStart < sourceCnt)
+			{
+				int copyCount = sourceCnt - srcCopyStart;
+				typeName[srcCopyStart..sourceCnt].CopyTo(modTypeName[destCnt..(destCnt + copyCount)]);
+				destCnt += copyCount;
+			}
+
+			return modTypeName[0..destCnt].ToString();
 		}
 	}
 

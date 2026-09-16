@@ -109,14 +109,18 @@ namespace TestCilbox
 
 		static public HashSet<String> GetWhiteListTypes() { return whiteListType; }
 
-		override public bool CheckTypeAllowed( String sType )
+		override public bool CheckTypeAllowed( Type sType )
 		{
-			return whiteListType.Contains( sType );
+			if (sType.IsGenericType && !sType.IsGenericTypeDefinition) sType = sType.GetGenericTypeDefinition();
+			string typeName = GetSanitizedTypeName(sType);
+			return whiteListType.Contains(typeName);
 		}
 
-		public override bool CheckFieldAllowed(string sType, string sFieldName)
+		public override bool CheckFieldAllowed(Type sType, string sFieldName)
 		{
-			return whiteListField.Contains( sType + "." + sFieldName );
+			if (sType.IsGenericType && !sType.IsGenericTypeDefinition) sType = sType.GetGenericTypeDefinition();
+			string typeName = GetSanitizedTypeName(sType);
+			return whiteListField.Contains(typeName + "." + sFieldName);
 		}
 
 		override public bool CheckMethodAllowed( out MethodInfo mi, Type declaringType, String name, SerializedTypeDescriptor [] parametersIn, SerializedTypeDescriptor [] genericArgumentsIn, String fullSignature )

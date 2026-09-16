@@ -246,7 +246,7 @@ namespace Cilbox
 					{
 						// If it's another cilbox proxy, it's OK.
 					}
-					else if( !box.CheckTypeAllowed( t.FullName ) )
+					else if( !box.CheckTypeAllowed( t ) )
 					{
 						Debug.LogWarning( $"Contraband found in script {className} field ID {i}: {o.GetType()}" );
 						runtimeFieldsObjects[i] = null;
@@ -420,7 +420,7 @@ namespace Cilbox
 					}
 				}
 
-				if( !isCilboxElementType && !box.CheckTypeAllowed( t.ToString() ) )
+				if( !isCilboxElementType && !box.CheckTypeAllowed( t ) )
 				{
 					proxyWasSetup = false;
 					throw new Exception( $"Contraband ARRAY found in script {className} field {rootFieldName}" );
